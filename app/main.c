@@ -3,17 +3,21 @@
 
 int main()
 {
-  printf("$ ");
-  fflush(stdout);
 
-  // Wait for user input
-  char input[100];
-  fgets(input, 100, stdin);
+  while (1 == 1)
+  {
+    printf("$ ");
+    fflush(stdout);
 
-  // strip the last '\n'
-  input[strlen(input) - 1] = '\0';
+    // Wait for user input
+    char input[100];
+    fgets(input, 100, stdin);
 
-  printf("%s: command not found\n", input);
+    // strip the last '\n'
+    input[strlen(input) - 1] = '\0';
+
+    printf("%s: command not found\n", input);
+  }
 
   return 0;
 }
