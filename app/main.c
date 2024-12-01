@@ -4,8 +4,8 @@
 
 int repl();
 int command_runner(char *);
-int echo(char *, int);
-void sexist(char *, int);
+int echo(char *);
+void sexist(char *);
 
 int main()
 {
@@ -33,22 +33,14 @@ int repl()
 
 int command_runner(char *input)
 {
-  int position = 0;
-  char c;
-
-  while ((c = input[position]) != ' ' && c != '\0')
-    position++;
-
-  input[position] = '\0';
-  if (strcmp(input, "echo") == 0)
+  if (strncmp(input, "echo", 4) == 0)
   {
-    input[position] = ' ';
-    return echo(input, position);
+    if (input[4] == ' ' || input[4] == '\0')
+      return echo(input);
   }
-  else if (strcmp(input, "exit") == 0)
+  else if (strncmp(input, "exit", 4) == 0)
   {
-    input[position] = ' ';
-    sexist(input, position);
+    sexist(input);
   }
 
   printf("%s: command not found\n", input);
@@ -56,11 +48,13 @@ int command_runner(char *input)
   return 0;
 }
 
-int echo(char *input, int position)
+int echo(char *input)
 {
-  int new_postion = 0;
+  // first five characters are "echo "
+  int position = 4, new_postion = 0;
   char c;
 
+  // Remove whitespace before the string arg
   while ((c = input[position]) == ' ')
     position++;
 
@@ -75,20 +69,8 @@ int echo(char *input, int position)
   return 0;
 }
 
-void sexist(char *input, int position)
+void sexist(char *input)
 {
-  int new_postion = 0;
-  char c;
-
-  while ((c = input[position]) == ' ')
-    position++;
-
-  while ((c = input[new_postion] = input[position]) != '\0')
-  {
-    new_postion++;
-    position++;
-  }
-
   int code = atoi(input);
 
   exit(code);
