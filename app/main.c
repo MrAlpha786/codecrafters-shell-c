@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <dirent.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 typedef struct builtin_command_t
@@ -74,55 +74,30 @@ BuiltinCommand *find_command(char *command)
   return NULL;
 }
 
-char *is_command_in_path(char *command, char *filepath)
+char *is_command_in_path(char *command)
 {
-  char *paths = getenv("PATH");
-  if (paths == NULL)
+  char *path = getenv("PATH");
+  if (path == NULL)
     return NULL;
 
-  DIR *d;
-  struct dirent *dir;
   struct stat statbuf;
-  char path[100], c;
-  int i = 0, j = 0;
+  static char filepath[100];
+  char *path_copy = strdup(path);
+  char *dir = strtok(path_copy, ":");
 
-  while (paths[j] != '\0')
+  while (dir != NULL)
   {
-    while ((c = path[i] = paths[j]) != '\0')
+    snprintf(filepath, sizeof(filepath), "%s/%s", dir, command);
+    if (stat(filepath, &statbuf) == 0 && statbuf.st_mode & S_IXUSR)
     {
-      if (c == ':')
-      {
-        path[i] = '\0';
-        i = 0;
-        j++;
-        break;
-      }
-      i++;
-      j++;
+      free(path_copy);
+      return filepath;
     }
 
-    d = opendir(path);
-    if (d == NULL)
-      continue;
-
-    while ((dir = readdir(d)) != NULL)
-    {
-      if (strcmp(dir->d_name, command) != 0)
-        continue;
-
-      closedir(d);
-      filepath[0] = '\0';
-      strcat(filepath, path);
-      strcat(filepath, "/");
-      strcat(filepath, dir->d_name);
-      if (stat(dir->d_name, &statbuf) == 0 && statbuf.st_mode & S_IXUSR)
-      {
-        return filepath;
-      }
-      return NULL;
-    }
+    dir = strtok(NULL, ":");
   }
 
+  free(path_copy);
   return NULL;
 }
 
@@ -164,36 +139,36 @@ int sexist(char *input)
 int stype(char *input)
 {
   // first five characters are "echo "
+  char *input_copy = strdup(input);
   int position = 4, new_postion = 0;
-  char c, filepath[100];
+  char c;
 
   // Remove whitespace before the string arg
-  while ((c = input[position]) == ' ')
+  while ((c = input_copy[position]) == ' ')
     position++;
 
-  while ((c = input[new_postion] = input[position]) != '\0')
+  while ((c = input_copy[new_postion] = input_copy[position]) != '\0')
   {
     new_postion++;
     position++;
   }
 
-  BuiltinCommand *com = find_command(input);
-
+  BuiltinCommand *com = find_command(input_copy);
   if (com != NULL)
   {
-    printf("%s is a shell builtin\n", input);
+    printf("%s is a shell builtin\n", input_copy);
     return 0;
   }
 
-  filepath[0] = '\0';
-  is_command_in_path(input, filepath);
-  if (filepath[0] != '\0')
+  char *filepath = is_command_in_path(input_copy);
+  if (filepath != NULL)
   {
-    printf("%s is %s\n", input, filepath);
-    return 0;
+    printf("%s is %s\n", input_copy, filepath);
   }
-
-  printf("%s: not found\n", input);
-
+  else
+  {
+    printf("%s: not found\n", input_copy);
+  }
+  
   return 0;
 }
