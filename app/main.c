@@ -25,12 +25,14 @@ int repl();
 int echo();
 int sexist();
 int stype();
+int spwd();
 int command_not_found();
 
 BuiltinCommand builtins[] = {
     {name : "echo", runner : echo},
     {name : "exit", runner : sexist},
-    {name : "type", runner : stype}};
+    {name : "type", runner : stype},
+    {name : "pwd", runner : spwd}};
 
 CommandToken TOKENS = {};
 
@@ -95,7 +97,9 @@ int execute(char *input)
 
   char *pcom = find_command_in_path(TOKENS.tokens[0]);
   if (pcom != NULL)
+  {
     return system(input);
+  }
 
   return command_not_found();
 }
@@ -189,6 +193,7 @@ int stype()
     if (filepath != NULL)
     {
       printf("%s is %s\n", arg, filepath);
+      free(filepath);
     }
     else
     {
@@ -196,5 +201,13 @@ int stype()
     }
   }
 
+  return 0;
+}
+
+int spwd()
+{
+  char *pwd = getcwd(NULL, 0);
+  printf("%s\n", pwd);
+  free(pwd);
   return 0;
 }
