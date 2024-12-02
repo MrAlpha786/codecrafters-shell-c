@@ -7,25 +7,32 @@
 typedef struct builtin_command_t
 {
   char *name;
-  int (*runner)(char *);
+  int (*runner)();
 } BuiltinCommand;
 
+typedef struct command_token_t
+{
+  int len;
+  char *tokens[100];
+} CommandToken;
+
+void tokenize(char *);
+int execute(char *);
+BuiltinCommand *find_builtin_command(char *);
+char *find_command_in_path(char *);
+
 int repl();
-int echo(char *);
-int sexist(char *);
-int stype(char *);
-int command_not_found(char *);
-BuiltinCommand *find_command(char *);
+int echo();
+int sexist();
+int stype();
+int command_not_found();
 
 BuiltinCommand builtins[] = {
     {name : "echo", runner : echo},
     {name : "exit", runner : sexist},
     {name : "type", runner : stype}};
 
-BuiltinCommand non_existing_command = {
-  name : "",
-  runner : command_not_found
-};
+CommandToken TOKENS = {};
 
 int main()
 {
@@ -34,38 +41,70 @@ int main()
 
 int repl()
 {
+  char input[100];
+
   while (1)
   {
     printf("$ ");
     fflush(stdout);
 
     // Wait for user input
-    char input[100];
     fgets(input, 100, stdin);
 
     // strip the last '\n'
     int l = strlen(input);
     input[l - 1] = '\0';
 
-    BuiltinCommand *com = find_command(input);
-
-    if (com == NULL)
-      command_not_found(input);
-    else
-      com->runner(input);
+    tokenize(input);
+    execute(input);
   }
 }
 
-BuiltinCommand *find_command(char *command)
+void tokenize(char *input)
 {
-  int len = 0;
+  char *str = strdup(input);
+  int position = 0, total_tokens = 1;
   char c;
-  while ((c = command[len]) != '\0' && c != ' ')
-    len++;
+  while ((c = str[position]) != '\0')
+  {
+    if (c == ' ')
+      total_tokens++;
+    position++;
+  }
 
+  TOKENS.len = total_tokens;
+  TOKENS.tokens[0] = str;
+  int current_token = 1;
+  position = 0;
+  while ((c = str[position]) != '\0')
+  {
+    if (c == ' ')
+    {
+      TOKENS.tokens[current_token++] = &str[++position];
+      str[position - 1] = '\0';
+    }
+    position++;
+  }
+}
+
+int execute(char *input)
+{
+  BuiltinCommand *com = find_builtin_command(TOKENS.tokens[0]);
+  if (com != NULL)
+    return com->runner();
+
+  char *pcom = find_command_in_path(TOKENS.tokens[0]);
+  if (pcom != NULL)
+    return system(input);
+
+  return command_not_found();
+}
+
+BuiltinCommand *find_builtin_command(char *command)
+{
   for (int i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++)
   {
-    if (strncmp(builtins[i].name, command, len) == 0)
+    if (strcmp(builtins[i].name, command) == 0)
     {
       return &builtins[i];
     }
@@ -74,7 +113,7 @@ BuiltinCommand *find_command(char *command)
   return NULL;
 }
 
-char *is_command_in_path(char *command)
+char *find_command_in_path(char *command)
 {
   char *path = getenv("PATH");
   if (path == NULL)
@@ -101,74 +140,61 @@ char *is_command_in_path(char *command)
   return NULL;
 }
 
-int command_not_found(char *input)
+int command_not_found()
 {
-  printf("%s: command not found\n", input);
+  char *command = TOKENS.tokens[0];
+  printf("%s: command not found\n", command);
   return 0;
 }
 
-int echo(char *input)
+int echo()
 {
-  // first five characters are "echo "
-  int position = 4, new_postion = 0;
-  char c;
-
-  // Remove whitespace before the string arg
-  while ((c = input[position]) == ' ')
-    position++;
-
-  while ((c = input[new_postion] = input[position]) != '\0')
+  for (int i = 1; i < TOKENS.len; i++)
   {
-    new_postion++;
-    position++;
+    printf("%s", TOKENS.tokens[i]);
+    if (i < TOKENS.len - 1)
+      printf(" ");
   }
-
-  printf("%s\n", input);
+  printf("\n");
 
   return 0;
 }
 
-int sexist(char *input)
+int sexist()
 {
-  int code = atoi(input);
-  exit(code);
+  if (TOKENS.len > 1)
+  {
+    int code = atoi(TOKENS.tokens[1]);
+    exit(code);
+  }
+  exit(0);
 
   return 0;
 }
 
-int stype(char *input)
+int stype()
 {
-  // first five characters are "echo "
-  char *input_copy = strdup(input);
-  int position = 4, new_postion = 0;
-  char c;
-
-  // Remove whitespace before the string arg
-  while ((c = input_copy[position]) == ' ')
-    position++;
-
-  while ((c = input_copy[new_postion] = input_copy[position]) != '\0')
+  for (int i = 1; i < TOKENS.len; i++)
   {
-    new_postion++;
-    position++;
+    char *arg = TOKENS.tokens[i];
+
+    BuiltinCommand *com = find_builtin_command(arg);
+    if (com != NULL)
+    {
+      printf("%s is a shell builtin\n", arg);
+      continue;
+    }
+
+    char *filepath = find_command_in_path(arg);
+    if (filepath != NULL)
+    {
+      printf("%s is %s\n", arg, filepath);
+    }
+    else
+    {
+      printf("%s: not found\n", arg);
+    }
   }
 
-  BuiltinCommand *com = find_command(input_copy);
-  if (com != NULL)
-  {
-    printf("%s is a shell builtin\n", input_copy);
-    return 0;
-  }
-
-  char *filepath = is_command_in_path(input_copy);
-  if (filepath != NULL)
-  {
-    printf("%s is %s\n", input_copy, filepath);
-  }
-  else
-  {
-    printf("%s: not found\n", input_copy);
-  }
-  
   return 0;
 }
