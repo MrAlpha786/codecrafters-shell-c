@@ -26,13 +26,15 @@ int echo();
 int sexist();
 int stype();
 int spwd();
+int scd();
 int command_not_found();
 
 BuiltinCommand builtins[] = {
     {name : "echo", runner : echo},
     {name : "exit", runner : sexist},
     {name : "type", runner : stype},
-    {name : "pwd", runner : spwd}};
+    {name : "pwd", runner : spwd},
+    {name : "cd", runner : scd}};
 
 CommandToken TOKENS = {};
 
@@ -209,5 +211,15 @@ int spwd()
   char *pwd = getcwd(NULL, 0);
   printf("%s\n", pwd);
   free(pwd);
+  return 0;
+}
+
+int scd()
+{
+  int status = chdir(TOKENS.tokens[1]);
+  if (status < 0)
+  {
+    printf("cd: %s: No such file or directory\n", TOKENS.tokens[1]);
+  }
   return 0;
 }
