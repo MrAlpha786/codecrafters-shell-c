@@ -16,7 +16,10 @@ typedef struct command_token_t
   char *tokens[100];
 } CommandToken;
 
-void tokenize(char *);
+int tokenize(char *);
+int sanitizeSingleQuote(int, int);
+void sanitizeWhitespace(char *, int);
+int check_flags(char *);
 int execute(char *);
 BuiltinCommand *find_builtin_command(char *);
 char *find_command_in_path(char *);
@@ -37,6 +40,7 @@ BuiltinCommand builtins[] = {
     {name : "cd", runner : scd}};
 
 CommandToken TOKENS = {};
+unsigned int FLAGS = 0;
 
 int main()
 {
@@ -60,35 +64,94 @@ int repl()
     input[l - 1] = '\0';
 
     tokenize(input);
+    if (check_flags(input) < 0)
+      continue;
+
     execute(input);
   }
 }
 
-void tokenize(char *input)
+int tokenize(char *input)
 {
   char *str = strdup(input);
-  int position = 0, total_tokens = 1;
+  int position = 0, last_quote_pos = 0, curr_token = 0, total_tokens = 1;
   char c;
+
+  TOKENS.tokens[0] = str;
   while ((c = str[position]) != '\0')
   {
+    if (c == '\'')
+    {
+      last_quote_pos = sanitizeSingleQuote(curr_token, last_quote_pos);
+      position += last_quote_pos;
+    }
+
     if (c == ' ')
+    {
+      last_quote_pos = -1;
       total_tokens++;
+      TOKENS.tokens[++curr_token] = &str[position + 1];
+      str[position] = '\0';
+      sanitizeWhitespace(str, position + 1);
+    }
     position++;
+    last_quote_pos++;
   }
 
   TOKENS.len = total_tokens;
-  TOKENS.tokens[0] = str;
-  int current_token = 1;
-  position = 0;
-  while ((c = str[position]) != '\0')
+  return 0;
+}
+
+int sanitizeSingleQuote(int curr_token, int first_q_pos)
+{
+  char *s = TOKENS.tokens[curr_token];
+  int i = first_q_pos, j = i + 1, next_pos = j;
+  char c;
+  FLAGS = FLAGS | 1; // set single quote flag
+
+  while ((c = s[i] = s[j]) != '\0' && c != '\'')
   {
-    if (c == ' ')
-    {
-      TOKENS.tokens[current_token++] = &str[++position];
-      str[position - 1] = '\0';
-    }
-    position++;
+    i++;
+    j++;
   }
+
+  if (c == '\'')
+  {
+    FLAGS = FLAGS & ~1; // reset flag
+    next_pos = i;
+    j++;
+  }
+
+  while ((c = s[i] = s[j]) != '\0')
+  {
+    i++;
+    j++;
+  }
+
+  return next_pos - first_q_pos - 1;
+}
+
+void sanitizeWhitespace(char *s, int i)
+{
+  int j = i;
+  char c;
+  while ((c = s[j]) == ' ')
+    j++;
+  while ((c = s[i] = s[j]) != '\0')
+  {
+    i++;
+    j++;
+  }
+}
+
+int check_flags(char *input)
+{
+  if ((FLAGS & 1) == 1)
+  {
+    printf("syntax error: %s\n", input);
+    return -1;
+  }
+  return 0;
 }
 
 int execute(char *input)
