@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 typedef struct builtin_command_t
 {
   char *name;
-  char *desc;
   int (*runner)(char *);
 } BuiltinCommand;
 
@@ -14,16 +15,15 @@ int echo(char *);
 int sexist(char *);
 int stype(char *);
 int command_not_found(char *);
-BuiltinCommand find_command(char *);
+BuiltinCommand *find_command(char *);
 
 BuiltinCommand builtins[] = {
-    {name : "echo", desc : "echo is a shell builtin", runner : echo},
-    {name : "exit", desc : "exit is a shell builtin", runner : sexist},
-    {name : "type", desc : "type is a shell builtin", runner : stype}};
+    {name : "echo", runner : echo},
+    {name : "exit", runner : sexist},
+    {name : "type", runner : stype}};
 
 BuiltinCommand non_existing_command = {
   name : "",
-  desc : "not found",
   runner : command_not_found
 };
 
@@ -47,13 +47,16 @@ int repl()
     int l = strlen(input);
     input[l - 1] = '\0';
 
-    BuiltinCommand com = find_command(input);
+    BuiltinCommand *com = find_command(input);
 
-    com.runner(input);
+    if (com == NULL)
+      command_not_found(input);
+    else
+      com->runner(input);
   }
 }
 
-BuiltinCommand find_command(char *command)
+BuiltinCommand *find_command(char *command)
 {
   int len = 0;
   char c;
@@ -64,11 +67,63 @@ BuiltinCommand find_command(char *command)
   {
     if (strncmp(builtins[i].name, command, len) == 0)
     {
-      return builtins[i];
+      return &builtins[i];
     }
   }
 
-  return non_existing_command;
+  return NULL;
+}
+
+char *is_command_in_path(char *command, char *filepath)
+{
+  char *paths = getenv("PATH");
+  if (paths == NULL)
+    return NULL;
+
+  DIR *d;
+  struct dirent *dir;
+  struct stat statbuf;
+  char path[100], c;
+  int i = 0, j = 0;
+
+  while (paths[j] != '\0')
+  {
+    while ((c = path[i] = paths[j]) != '\0')
+    {
+      if (c == ':')
+      {
+        path[i] = '\0';
+        i = 0;
+        j++;
+        break;
+      }
+      i++;
+      j++;
+    }
+
+    d = opendir(path);
+    if (d == NULL)
+      continue;
+
+    while ((dir = readdir(d)) != NULL)
+    {
+      if (strcmp(dir->d_name, command) != 0)
+        continue;
+
+      closedir(d);
+      filepath[0] = '\0';
+      strcat(filepath, path);
+      strcat(filepath, "/");
+      strcat(filepath, dir->d_name);
+      if (stat(dir->d_name, &statbuf) == 0 && statbuf.st_mode & S_IXUSR)
+      {
+        return filepath;
+      }
+      return NULL;
+    }
+  }
+
+  return NULL;
 }
 
 int command_not_found(char *input)
@@ -110,7 +165,7 @@ int stype(char *input)
 {
   // first five characters are "echo "
   int position = 4, new_postion = 0;
-  char c;
+  char c, filepath[100];
 
   // Remove whitespace before the string arg
   while ((c = input[position]) == ' ')
@@ -122,16 +177,23 @@ int stype(char *input)
     position++;
   }
 
-  BuiltinCommand com = find_command(input);
+  BuiltinCommand *com = find_command(input);
 
-  if (com.name == "")
+  if (com != NULL)
   {
-    printf("%s: not found\n", input);
+    printf("%s is a shell builtin\n", input);
+    return 0;
   }
-  else
+
+  filepath[0] = '\0';
+  is_command_in_path(input, filepath);
+  if (filepath[0] != '\0')
   {
-    printf("%s\n", com.desc);
+    printf("%s is %s\n", input, filepath);
+    return 0;
   }
+
+  printf("%s: not found\n", input);
 
   return 0;
 }
