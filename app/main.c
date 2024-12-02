@@ -216,7 +216,16 @@ int spwd()
 
 int scd()
 {
-  int status = chdir(TOKENS.tokens[1]);
+  char *path;
+  if (strcmp("~", TOKENS.tokens[1]) == 0)
+  {
+    path = getenv("HOME");
+  }
+  else
+  {
+    path = TOKENS.tokens[1];
+  }
+  int status = chdir(path);
   if (status < 0)
   {
     printf("cd: %s: No such file or directory\n", TOKENS.tokens[1]);
