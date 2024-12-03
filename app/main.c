@@ -18,6 +18,7 @@ typedef struct command_token_t
 
 int tokenize(char *);
 int sanitizeSingleQuote(int, int);
+int sanitizeDoubleQuote(int, int);
 void sanitizeWhitespace(char *, int);
 int check_flags(char *);
 int execute(char *);
@@ -26,7 +27,7 @@ char *find_command_in_path(char *);
 
 int repl();
 int echo();
-int sexist();
+int sexit();
 int stype();
 int spwd();
 int scd();
@@ -34,7 +35,7 @@ int command_not_found();
 
 BuiltinCommand builtins[] = {
     {name : "echo", runner : echo},
-    {name : "exit", runner : sexist},
+    {name : "exit", runner : sexit},
     {name : "type", runner : stype},
     {name : "pwd", runner : spwd},
     {name : "cd", runner : scd}};
@@ -86,6 +87,12 @@ int tokenize(char *input)
       position += last_quote_pos;
     }
 
+    if (c == '"')
+    {
+      last_quote_pos = sanitizeDoubleQuote(curr_token, last_quote_pos);
+      position += last_quote_pos;
+    }
+
     if (c == ' ')
     {
       last_quote_pos = -1;
@@ -118,6 +125,35 @@ int sanitizeSingleQuote(int curr_token, int first_q_pos)
   if (c == '\'')
   {
     FLAGS = FLAGS & ~1; // reset flag
+    next_pos = i;
+    j++;
+  }
+
+  while ((c = s[i] = s[j]) != '\0')
+  {
+    i++;
+    j++;
+  }
+
+  return next_pos - first_q_pos - 1;
+}
+
+int sanitizeDoubleQuote(int curr_token, int first_q_pos)
+{
+  char *s = TOKENS.tokens[curr_token];
+  int i = first_q_pos, j = i + 1, next_pos = j;
+  char c;
+  FLAGS = FLAGS | (1 << 1); // set single quote flag
+
+  while ((c = s[i] = s[j]) != '\0' && c != '"')
+  {
+    i++;
+    j++;
+  }
+
+  if (c == '"')
+  {
+    FLAGS = FLAGS & ~(1 << 1); // reset flag
     next_pos = i;
     j++;
   }
@@ -229,7 +265,7 @@ int echo()
   return 0;
 }
 
-int sexist()
+int sexit()
 {
   if (TOKENS.len > 1)
   {
