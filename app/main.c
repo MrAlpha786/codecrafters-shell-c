@@ -182,7 +182,7 @@ void sanitizeWhitespace(char *s, int i)
 
 int check_flags(char *input)
 {
-  if ((FLAGS & 1) == 1)
+  if ((FLAGS & 1) == 1 || (FLAGS & (1 << 1)) == (1 << 1))
   {
     printf("syntax error: %s\n", input);
     return -1;
