@@ -17,9 +17,10 @@ typedef struct command_token_t
 } CommandToken;
 
 int tokenize(char *);
-int sanitizeSingleQuote(int, int);
-int sanitizeDoubleQuote(int, int);
-void sanitizeWhitespace(char *, int);
+int handleSingleQuote(char *, int);
+int handleDoubleQuote(char *, int);
+int handleWhitespace(char *, int);
+void handleEscapeChar(char *, int);
 int check_flags(char *);
 int execute(char *);
 BuiltinCommand *find_builtin_command(char *);
@@ -41,6 +42,7 @@ BuiltinCommand builtins[] = {
     {name : "cd", runner : scd}};
 
 CommandToken TOKENS = {};
+
 unsigned int FLAGS = 0;
 
 int main()
@@ -65,6 +67,7 @@ int repl()
     input[l - 1] = '\0';
 
     tokenize(input);
+    // printf("%d\n", TOKENS.len);
     if (check_flags(input) < 0)
       continue;
 
@@ -75,7 +78,7 @@ int repl()
 int tokenize(char *input)
 {
   char *str = strdup(input);
-  int position = 0, last_quote_pos = 0, curr_token = 0, total_tokens = 1;
+  int position = 0, curr_token = 0, total_tokens = 1;
   char c;
 
   TOKENS.tokens[0] = str;
@@ -83,36 +86,45 @@ int tokenize(char *input)
   {
     if (c == '\'')
     {
-      last_quote_pos = sanitizeSingleQuote(curr_token, last_quote_pos);
-      position += last_quote_pos;
+      position = handleSingleQuote(str, position);
+      // printf("%s, %c\n", TOKENS.tokens[curr_token], str[position]);
     }
-
-    if (c == '"')
+    else if (c == '"')
     {
-      last_quote_pos = sanitizeDoubleQuote(curr_token, last_quote_pos);
-      position += last_quote_pos;
+      position = handleDoubleQuote(str, position);
     }
-
-    if (c == ' ')
+    else if (c == '\\')
     {
-      last_quote_pos = -1;
-      total_tokens++;
-      TOKENS.tokens[++curr_token] = &str[position + 1];
+      handleEscapeChar(str, position);
+      position++;
+    }
+    // current token ends here.
+    else if (c == ' ')
+    {
       str[position] = '\0';
-      sanitizeWhitespace(str, position + 1);
+
+      // skip multiple spaces before starting a new token
+      position = handleWhitespace(str, position + 1);
+      if (str[position] == '\0') // if input ended then break
+        break;
+
+      // create a new token
+      TOKENS.tokens[++curr_token] = &str[position];
+      total_tokens++;
     }
-    position++;
-    last_quote_pos++;
+    else
+    {
+      position++; // keep adding new char to token
+    }
   }
 
   TOKENS.len = total_tokens;
   return 0;
 }
 
-int sanitizeSingleQuote(int curr_token, int first_q_pos)
+int handleSingleQuote(char *s, int sq_pos)
 {
-  char *s = TOKENS.tokens[curr_token];
-  int i = first_q_pos, j = i + 1, next_pos = j;
+  int i = sq_pos, j = i + 1;
   char c;
   FLAGS = FLAGS | 1; // set single quote flag
 
@@ -125,23 +137,21 @@ int sanitizeSingleQuote(int curr_token, int first_q_pos)
   if (c == '\'')
   {
     FLAGS = FLAGS & ~1; // reset flag
-    next_pos = i;
-    j++;
+    s[j++] = ' ';
   }
 
-  while ((c = s[i] = s[j]) != '\0')
+  while ((c = s[i] = s[j]) != ' ' && c != '\0')
   {
     i++;
     j++;
   }
 
-  return next_pos - first_q_pos - 1;
+  return i;
 }
 
-int sanitizeDoubleQuote(int curr_token, int first_q_pos)
+int handleDoubleQuote(char *s, int dq_pos)
 {
-  char *s = TOKENS.tokens[curr_token];
-  int i = first_q_pos, j = i + 1, next_pos = j;
+  int i = dq_pos, j = i + 1;
   char c;
   FLAGS = FLAGS | (1 << 1); // set single quote flag
 
@@ -154,25 +164,32 @@ int sanitizeDoubleQuote(int curr_token, int first_q_pos)
   if (c == '"')
   {
     FLAGS = FLAGS & ~(1 << 1); // reset flag
-    next_pos = i;
-    j++;
+    s[j++] = ' ';
   }
 
-  while ((c = s[i] = s[j]) != '\0')
+  while ((c = s[i] = s[j]) != '\0' && c != ' ')
   {
     i++;
     j++;
   }
 
-  return next_pos - first_q_pos - 1;
+  return i;
 }
 
-void sanitizeWhitespace(char *s, int i)
+int handleWhitespace(char *s, int spc_pos)
 {
-  int j = i;
+  int j = spc_pos;
   char c;
   while ((c = s[j]) == ' ')
     j++;
+  return j;
+}
+
+void handleEscapeChar(char *s, int esc_pos)
+{
+  int i = esc_pos, j = i + 1;
+  char c;
+
   while ((c = s[i] = s[j]) != '\0')
   {
     i++;
