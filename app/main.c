@@ -84,7 +84,12 @@ int tokenize(char *input)
   TOKENS.tokens[0] = str;
   while ((c = str[position]) != '\0')
   {
-    if (c == '\'')
+    if (c == '\\')
+    {
+      handleEscapeChar(str, position);
+      position++;
+    }
+    else if (c == '\'')
     {
       position = handleSingleQuote(str, position);
       // printf("%s, %c\n", TOKENS.tokens[curr_token], str[position]);
@@ -92,11 +97,6 @@ int tokenize(char *input)
     else if (c == '"')
     {
       position = handleDoubleQuote(str, position);
-    }
-    else if (c == '\\')
-    {
-      handleEscapeChar(str, position);
-      position++;
     }
     // current token ends here.
     else if (c == ' ')
@@ -151,12 +151,17 @@ int handleSingleQuote(char *s, int sq_pos)
 
 int handleDoubleQuote(char *s, int dq_pos)
 {
-  int i = dq_pos, j = i + 1;
+  int i = dq_pos, j = i + 1, new_pos;
   char c;
   FLAGS = FLAGS | (1 << 1); // set single quote flag
 
   while ((c = s[i] = s[j]) != '\0' && c != '"')
   {
+    if (c == '\\' && (s[j + 1] == '\\' || s[j + 1] == '$' || s[j + 1] == '"'))
+    {
+      handleEscapeChar(s, j);
+      s[i] = s[j];
+    }
     i++;
     j++;
   }
@@ -169,6 +174,11 @@ int handleDoubleQuote(char *s, int dq_pos)
 
   while ((c = s[i] = s[j]) != '\0' && c != ' ')
   {
+    if (c == '\\')
+    {
+      handleEscapeChar(s, j);
+      s[i] = s[j];
+    }
     i++;
     j++;
   }
@@ -201,7 +211,11 @@ int check_flags(char *input)
 {
   if ((FLAGS & 1) == 1 || (FLAGS & (1 << 1)) == (1 << 1))
   {
-    printf("syntax error: %s\n", input);
+    // for (int i = 0; i < TOKENS.len; i++)
+    // {
+    //   printf("%s\n", TOKENS.tokens[i]);
+    // }
+    printf("syntax error (%d): %s\n", FLAGS, input);
     return -1;
   }
   return 0;
