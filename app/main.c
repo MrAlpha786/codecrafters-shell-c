@@ -78,29 +78,29 @@ int repl()
 int tokenize(char *input)
 {
   char *str = strdup(input);
-  int position = 0, curr_token = 0, total_tokens = 1;
+  int position = 0, curr_token = 0;
   char c;
 
   TOKENS.tokens[0] = str;
+  TOKENS.len = 1;
   while ((c = str[position]) != '\0')
   {
-    if (c == '\\')
+    switch (c)
     {
+    case '\\':
       handleEscapeChar(str, position);
       position++;
-    }
-    else if (c == '\'')
-    {
+      break;
+
+    case '\'':
       position = handleSingleQuote(str, position);
-      // printf("%s, %c\n", TOKENS.tokens[curr_token], str[position]);
-    }
-    else if (c == '"')
-    {
+      break;
+
+    case '"':
       position = handleDoubleQuote(str, position);
-    }
-    // current token ends here.
-    else if (c == ' ')
-    {
+      break;
+
+    case ' ': // current token ends here.
       str[position] = '\0';
 
       // skip multiple spaces before starting a new token
@@ -110,15 +110,15 @@ int tokenize(char *input)
 
       // create a new token
       TOKENS.tokens[++curr_token] = &str[position];
-      total_tokens++;
-    }
-    else
-    {
+      TOKENS.len++;
+      break;
+
+    default:
       position++; // keep adding new char to token
+      break;
     }
   }
 
-  TOKENS.len = total_tokens;
   return 0;
 }
 
@@ -160,7 +160,7 @@ int handleDoubleQuote(char *s, int dq_pos)
     if (c == '\\' && (s[j + 1] == '\\' || s[j + 1] == '$' || s[j + 1] == '"'))
     {
       handleEscapeChar(s, j);
-      s[i] = s[j];
+      s[i] = s[j]; // recopy s[i] to s[j] because s[j] has changed after handleEscapeChar
     }
     i++;
     j++;
@@ -257,7 +257,7 @@ char *find_command_in_path(char *command)
 
   struct stat statbuf;
   static char filepath[100];
-  char *path_copy = strdup(path);
+  char *path_copy = strdup(path); // do everything on pathcopy because of strtok() uses a shared buffer.
   char *dir = strtok(path_copy, ":");
 
   while (dir != NULL)
