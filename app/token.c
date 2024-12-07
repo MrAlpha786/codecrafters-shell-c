@@ -10,7 +10,6 @@ static int handleSingleQuote(char *s, int);
 static int handleDoubleQuote(char *s, int);
 static int handleWhitespace(char *s, int);
 static void handleEscapeChar(char *s, int);
-static void add_token(char *);
 static void free_tokens();
 
 unsigned int FLAGS = 0;
@@ -50,7 +49,16 @@ int tokenize(char *input)
         break;
 
       // create a new token
-      add_token(&str[position]);
+      CommandToken *new_token = malloc(sizeof(CommandToken));
+      if (!new_token)
+      {
+        perror("Failed to allocate memory");
+        exit(1);
+      }
+      new_token->text = &str[position];
+      new_token->next = NULL;
+      curr_token->next = new_token;
+      curr_token = curr_token->next;
       break;
 
     default:
@@ -60,27 +68,6 @@ int tokenize(char *input)
   }
 
   return 0;
-}
-
-// Function to add a token to the list
-static void add_token(char *text)
-{
-  CommandToken *new_token = malloc(sizeof(CommandToken));
-  if (!new_token)
-  {
-    perror("Failed to allocate memory");
-    exit(1);
-  }
-  new_token->text = text;
-  new_token->next = NULL;
-
-  // Append to the end of the list
-  CommandToken *curr = &FIRST_TOKEN;
-  while (curr->next)
-  {
-    curr = curr->next;
-  }
-  curr->next = new_token;
 }
 
 static void free_tokens()
