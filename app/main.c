@@ -7,10 +7,11 @@
 #include "shell.h"
 #include "token.h"
 #include "builtins.h"
+#include "flags.h"
 
 int execute(char *);
 int command_not_found();
-
+int check_flags(char *);
 int repl();
 
 int main()
@@ -34,6 +35,7 @@ int repl()
     int l = strlen(input);
     input[l - 1] = '\0';
 
+    reset_flags();
     tokenize(input);
     // printf("%d\n", TOKENS.len);
     if (check_flags(input) < 0)
@@ -41,6 +43,20 @@ int repl()
 
     execute(input);
   }
+}
+
+int check_flags(char *input)
+{
+  if (is_flag_set(FLAG_SINGLE_QUOTE) || is_flag_set(FLAG_DOUBLE_QUOTE))
+  {
+    // for (int i = 0; i < TOKENS.len; i++)
+    // {
+    //   printf("%s\n", TOKENS.tokens[i]);
+    // }
+    printf("syntax error (%d): %s\n", get_flags(), input);
+    return -1;
+  }
+  return 0;
 }
 
 int command_not_found()

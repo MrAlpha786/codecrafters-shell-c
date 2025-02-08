@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "shell.h"
+#include "flags.h"
 
 CommandToken FIRST_TOKEN = {NULL, NULL};
 
@@ -11,8 +12,6 @@ static int handleDoubleQuote(char *s, int);
 static int handleWhitespace(char *s, int);
 static void handleEscapeChar(char *s, int);
 static void free_tokens();
-
-unsigned int FLAGS = 0;
 
 int tokenize(char *input)
 {
@@ -83,27 +82,13 @@ static void free_tokens()
   FIRST_TOKEN.next = NULL; // Reset
 }
 
-int check_flags(char *input)
-{
-  if ((FLAGS & 1) == 1 || (FLAGS & (1 << 1)) == (1 << 1))
-  {
-    // for (int i = 0; i < TOKENS.len; i++)
-    // {
-    //   printf("%s\n", TOKENS.tokens[i]);
-    // }
-    printf("syntax error (%d): %s\n", FLAGS, input);
-    return -1;
-  }
-  return 0;
-}
-
 static int handleSingleQuote(char *s, int sq_pos)
 {
-  int i = sq_pos, j = i + 1;
+  int i = sq_pos, j = i + 1, new_pos = i;
   char c;
-  FLAGS = FLAGS | 1; // set single quote flag
+  set_flag(FLAG_SINGLE_QUOTE);
 
-  while ((c = s[i] = s[j]) != '\0' && c != '\'')
+  while ((c = s[i] = s[j]) != '\'' && c != '\0')
   {
     i++;
     j++;
@@ -111,24 +96,26 @@ static int handleSingleQuote(char *s, int sq_pos)
 
   if (c == '\'')
   {
-    FLAGS = FLAGS & ~1; // reset flag
-    s[j++] = ' ';
+    clear_flag(FLAG_SINGLE_QUOTE);
+    j++;
   }
 
-  while ((c = s[i] = s[j]) != ' ' && c != '\0')
+  new_pos = i;
+
+  while ((c = s[i] = s[j]) != '\0')
   {
     i++;
     j++;
   }
 
-  return i;
+  return new_pos;
 }
 
 static int handleDoubleQuote(char *s, int dq_pos)
 {
-  int i = dq_pos, j = i + 1, new_pos;
+  int i = dq_pos, j = i + 1, new_pos = i;
   char c;
-  FLAGS = FLAGS | (1 << 1); // set single quote flag
+  set_flag(FLAG_DOUBLE_QUOTE);
 
   while ((c = s[i] = s[j]) != '\0' && c != '"')
   {
@@ -143,22 +130,19 @@ static int handleDoubleQuote(char *s, int dq_pos)
 
   if (c == '"')
   {
-    FLAGS = FLAGS & ~(1 << 1); // reset flag
-    s[j++] = ' ';
+    clear_flag(FLAG_DOUBLE_QUOTE);
+    j++;
   }
 
-  while ((c = s[i] = s[j]) != '\0' && c != ' ')
+  new_pos = i;
+
+  while ((c = s[i] = s[j]) != '\0')
   {
-    if (c == '\\')
-    {
-      handleEscapeChar(s, j);
-      s[i] = s[j];
-    }
     i++;
     j++;
   }
 
-  return i;
+  return new_pos;
 }
 
 static int handleWhitespace(char *s, int spc_pos)
